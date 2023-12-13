@@ -21,6 +21,7 @@ func Traverse(h func(string, Generator)) {
 	}
 }
 
+// MARK(zgx):hack keyfun
 func init() {
 	gmap["digit"] = &Digit{}
 	gmap["letter"] = &Letter{}

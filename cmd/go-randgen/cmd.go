@@ -33,6 +33,13 @@ var dbms string
 var rootCmd = &cobra.Command{
 	Use:   "go-randgen",
 	Short: "QA tool for fuzzy test just like mysql randgen",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		initCtx()
+	},
+}
+
+func initCtx() {
+	gendata.InitTmpl(dbms)
 }
 
 // init command flag
@@ -55,9 +62,8 @@ func initCmd() {
 		"sql output file path")
 
 	// driver
-	rootCmd.PersistentFlags().StringVarP(&dbms, "dbms", "D", "mysql",
-		"specify the DBMS driver, defult MySQL. Supported: mysql, sqlite3, postgres.")
-
+	rootCmd.PersistentFlags().StringVarP(&dbms, "dbms", "D", "doris",
+		"specify the DBMS driver, defult Doris. Supported: doris, mysql, sqlite3, postgres")
 	rootCmd.AddCommand(newExecCmd())
 	rootCmd.AddCommand(newGentestCmd())
 	rootCmd.AddCommand(newGenDataCmd())

@@ -63,6 +63,8 @@ func gentestAction(cmd *cobra.Command, args []string) {
 				[]byte(strings.Join(ddls, ";\n")+";"), os.ModePerm)
 			if err != nil {
 				log.Printf("write ddl in dist fail, %v\n", err)
+			} else {
+				log.Printf("dump ddl in %s ok\n", outPath+".data.sql")
 			}
 		}
 
@@ -76,6 +78,8 @@ func gentestAction(cmd *cobra.Command, args []string) {
 			[]byte(strings.Join(allSqls, ";\n")+";"), os.ModePerm)
 		if err != nil {
 			log.Printf("sql output error, %v\n", err)
+		} else {
+			log.Printf("dump ddl & random sqls in %s ok\n", outPath+".sql")
 		}
 	}
 }

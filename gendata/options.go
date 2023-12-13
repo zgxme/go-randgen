@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/pingcap/errors"
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type varWithDefault struct {

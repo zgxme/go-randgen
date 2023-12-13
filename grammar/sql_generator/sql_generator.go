@@ -11,7 +11,7 @@ import (
 
 	"github.com/pingcap/go-randgen/gendata"
 	"github.com/pingcap/go-randgen/grammar/yacc_parser"
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type BranchAnalyze struct {
@@ -243,6 +243,7 @@ func (i *SQLRandomlyIterator) generateSQLRandomly(productionName string,
 			i.printDebugInfo(item.OriginString(), recurCounter)
 
 			// semicolon
+			// MARK(zgx):hear
 			if item.OriginString() == ";" {
 				// not last rune in bnf expression
 				if selectIndex != len(production.Alter)-1 || index != len(seqs.Items)-1 {
@@ -272,6 +273,7 @@ func (i *SQLRandomlyIterator) generateSQLRandomly(productionName string,
 			if err = handlePreSpace(firstWrite, parentPreSpace, item, sqlBuffer); err != nil {
 				return !firstWrite, err
 			}
+			//FIXME(zgx): _table._filed
 
 			// key word parse
 			if res, ok, err := i.keyFunc.Gen(item.OriginString()); err != nil {

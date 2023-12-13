@@ -3,19 +3,44 @@ package gendata
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
+	"text/template"
 
-	"github.com/yuin/gopher-lua"
+	"github.com/pingcap/go-randgen/utils"
+	lua "github.com/yuin/gopher-lua"
 )
 
 type Tables struct {
 	*options
 }
 
-var tablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
+var defaultTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
 	"`pk` int primary key%s\n"+
 	") {{.charsets}} {{.partitions}}")
+
+var dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
+	"`pk` int%s\n"+
+	") engine=olap\n"+
+	"distributed by hash(pk) buckets 10\n"+
+	"properties(\n"+
+	"	'replication_num' = '1')")
+
+var tablesTmplData = map[string]*template.Template{
+	utils.DodirTmpl:   dorisTablesTmpl,
+	utils.DefaultTmpl: defaultTablesTmpl,
+}
+
+var tablesTmpl = defaultTablesTmpl
+
+func InitTmpl(dbms string) {
+	if val, ok := utils.DbmsType[dbms]; ok {
+		tablesTmpl = tablesTmplData[val]
+	} else {
+		log.Println("dbms not exist, set tablesTmpl default")
+	}
+}
 
 // support vars
 var tablesVars = []*varWithDefault{
@@ -79,6 +104,8 @@ func (t *Tables) gen() ([]*tableStmt, error) {
 	m := make(map[string]string)
 	stmts := make([]*tableStmt, 0, t.numbers)
 
+	tableTmpM := make(map[string]int)
+
 	err := t.traverse(func(cur []string) error {
 		buf.Reset()
 		buf.WriteString(tnamePrefix)
@@ -97,6 +124,13 @@ func (t *Tables) gen() ([]*tableStmt, error) {
 
 		tname := buf.String()
 
+		if v, ok := tableTmpM[tname]; !ok {
+			tableTmpM[tname] = 1
+		} else {
+			nv := v + 1
+			tableTmpM[tname] = nv
+			tname = tname + strconv.Itoa(nv)
+		}
 		stmt.name = tname
 
 		m["tname"] = tname

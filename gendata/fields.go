@@ -2,9 +2,10 @@ package gendata
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}} {{.sign}} {{.keys}}")
@@ -104,10 +105,15 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 	extraStmts := make([]string, 0)
 	fieldExecs := make([]*fieldExec, 0, f.numbers)
 
+	filedTmpM := make(map[string]int)
+
 	err := f.traverse(func(cur []string) error {
 		fExec := &fieldExec{}
 
 		fname := fnamePrefix + "_" + strings.Join(cur, "_")
+		fname = strings.ReplaceAll(strings.ReplaceAll(fname, "(", "_"), ")", "_")
+		fname = strings.ReplaceAll(fname, ",", "_")
+		fname = strings.Trim(fname, " ")
 		extraNum := 0
 
 		for i := range cur {
@@ -132,7 +138,13 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 			}
 			m[field] = target
 		}
-
+		if v, ok := filedTmpM[fname]; !ok {
+			filedTmpM[fname] = 1
+		} else {
+			nv := v + 1
+			filedTmpM[fname] = nv
+			fname = fname + strconv.Itoa(nv)
+		}
 		m["fname"] = fname
 		fExec.name = fname
 
