@@ -94,6 +94,9 @@ func ByConfig(config *ZzConfig) ([]string, Keyfun, error) {
 	sqls := make([]string, 0, len(tableStmts))
 	for _, tableStmt := range tableStmts {
 		sqls = append(sqls, tableStmt.ddl)
+		if tableStmt.rowNum <= 0 {
+			continue
+		}
 		valuesStmt := make([]string, 0, tableStmt.rowNum)
 		for i := 0; i < tableStmt.rowNum; i++ {
 			recordGor.oneRow(row)
