@@ -223,7 +223,9 @@ fields = {
     types = {'bigint', 'float', 'double', 'decimal(40, 20)',
         'char(20)', 'varchar(20)'},
     -- 所有的上面的数字类型都要测试带符合和不带符号两种
-    sign = {'signed', 'unsigned'}
+    sign = {'signed', 'unsigned'},
+    -- 所有的上面的数字类型都要 null 和 not null 两种
+    -- null = {'null', 'not null'}
 }
 
 -- 数据初始化相关定义

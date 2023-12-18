@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/pingcap/go-randgen/gendata/generators"
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 )
 
 const numberType = "numbers"
@@ -105,9 +105,21 @@ func composeFromGenName(genNames []string) generators.Generator {
 func (d *Data) getRecordGen(fields []*fieldExec) recordGen {
 	gens := make([]generators.Generator, 0)
 	for _, f := range fields {
+		tmpgens := d.gens
+		if f.notnull {
+			tmpgens = make(map[string]generators.Generator)
+			for k, v := range d.gens {
+				if g, ok := v.(*composeGen); ok {
+					tmpgens[k] = g.NotNull()
+					continue
+				}
+				tmpgens[k] = v
+			}
+		}
+
 		// full type name
 		name := f.tp
-		generator, ok := d.gens[name]
+		generator, ok := tmpgens[name]
 		if ok {
 			gens = append(gens, generator)
 			continue
@@ -117,7 +129,7 @@ func (d *Data) getRecordGen(fields []*fieldExec) recordGen {
 		index := strings.Index(name, "(")
 		if index != -1 {
 			name = name[:index]
-			generator, ok := d.gens[name]
+			generator, ok := tmpgens[name]
 			if ok {
 				gens = append(gens, generator)
 				continue
@@ -129,7 +141,7 @@ func (d *Data) getRecordGen(fields []*fieldExec) recordGen {
 		if !ok {
 			summaryName = stringsType
 		}
-		generator, ok = d.gens[summaryName]
+		generator, ok = tmpgens[summaryName]
 		if !ok {
 			log.Fatalf("shouldn't run here, summary name %s \n %s", summaryName, debug.Stack())
 		}
@@ -165,12 +177,27 @@ func (g *composeGen) Gen() string {
 	return g.gs[rand.Intn(len(g.gs))].Gen()
 }
 
+func (g *composeGen) NotNull() *composeGen {
+	newgs := []generators.Generator{}
+	for _, gen := range g.gs {
+		if g, ok := gen.(*constGen); ok && g.IsNull() {
+			continue
+		}
+		newgs = append(newgs, gen)
+	}
+	return &composeGen{newgs}
+}
+
 type constGen struct {
 	constant string
 }
 
 func (c *constGen) Gen() string {
 	return c.constant
+}
+
+func (c *constGen) IsNull() bool {
+	return strings.ToLower(c.constant) == "null"
 }
 
 type unsignGen struct {
