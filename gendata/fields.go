@@ -8,7 +8,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}} {{.sign}} {{.keys}}")
+var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}} {{.sign}} {{.null}} {{.keys}}")
 
 var fieldVars = []*varWithDefault{
 	{
@@ -23,6 +23,10 @@ var fieldVars = []*varWithDefault{
 	{
 		"sign",
 		[]string{"signed"},
+	},
+	{
+		"null",
+		[]string{""},
 	},
 }
 
@@ -82,6 +86,13 @@ var fieldFuncs = map[string]func(text string, fname string, ctx *fieldExec) (tar
 
 		return "", false, nil, nil
 	},
+	// "null" or "not null"
+	"null": func(text string, _ string, ctx *fieldExec) (string, bool, *string, error) {
+		if strings.ToLower(text) == "not null" {
+			ctx.notnull = true
+		}
+		return text, false, nil, nil
+	},
 }
 
 type Fields struct {
@@ -113,6 +124,7 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 		fname := fnamePrefix + "_" + strings.Join(cur, "_")
 		fname = strings.ReplaceAll(strings.ReplaceAll(fname, "(", "_"), ")", "_")
 		fname = strings.ReplaceAll(fname, ",", "_")
+		fname = strings.ReplaceAll(fname, " ", "_")
 		fname = strings.Trim(fname, " ")
 		extraNum := 0
 
@@ -165,6 +177,7 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 type fieldExec struct {
 	canUnSign bool
 	unsign    bool
+	notnull   bool
 	name      string
 	// tp writen by user zz file
 	tp string

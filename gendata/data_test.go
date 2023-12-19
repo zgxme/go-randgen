@@ -25,8 +25,9 @@ data = {
 
 		recordGen := data.getRecordGen([]*fieldExec{
 			{
-				name: "",
-				tp:   "enum",
+				name:    "",
+				tp:      "enum",
+				notnull: true,
 			},
 			{
 				name: "",
@@ -41,6 +42,7 @@ data = {
 		row := make([]string, 3)
 
 		recordGen.oneRow(row)
+		assert.NotEqual(t, "null", row[0])
 	})
 
 }
