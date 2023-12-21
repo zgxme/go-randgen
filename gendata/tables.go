@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/pingcap/go-randgen/utils"
+	"github.com/samber/lo"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -24,6 +26,7 @@ var dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
 	"`pk` int%s\n"+
 	") engine=olap\n"+
 	"distributed by hash(pk) buckets 10\n"+
+	"{{.partitions}}\n"+
 	"properties(\n"+
 	"	'replication_num' = '1')")
 
@@ -32,9 +35,13 @@ var tablesTmplData = map[string]*template.Template{
 	utils.DefaultTmpl: defaultTablesTmpl,
 }
 
-var tablesTmpl = defaultTablesTmpl
+var (
+	tablesTmpl = defaultTablesTmpl
+	DBMS       = utils.MYSQL
+)
 
 func InitTmpl(dbms string) {
+	DBMS = dbms
 	if val, ok := utils.DbmsType[dbms]; ok {
 		tablesTmpl = tablesTmplData[val]
 	} else {
@@ -79,12 +86,32 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 		if text == "undef" {
 			return "", nil
 		}
-		num, err := strconv.Atoi(text)
-		if err != nil {
-			return "", err
+
+		// Doris does not support hash partition.
+		if DBMS != utils.DORIS {
+			num, err := strconv.Atoi(text)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("\npartition by hash(pk)\npartitions %d", num), nil
 		}
-		return fmt.Sprintf("\npartition by hash(pk)\npartitions %d", num), nil
+
+		stmt.partitionFields = parsePartitionFields(text)
+
+		return "PARTITION BY " + text, nil
 	},
+}
+
+var partition_field_re = regexp.MustCompile(`(?i:range|list)\s*\((.*)\)\s*\(`)
+
+// RANGE(col1, col2) -> [col1, col2]
+func parsePartitionFields(partitions string) []string {
+	matches := partition_field_re.FindStringSubmatch(partitions)
+	if len(matches) != 2 {
+		log.Fatalln("partition fields not found")
+	}
+
+	return lo.Map(strings.Split(matches[1], ","), func(field string, _ int) string { return strings.Trim(field, "` ") })
 }
 
 func newTables(l *lua.LState) (*Tables, error) {
@@ -156,7 +183,8 @@ type tableStmt struct {
 	name   string
 	rowNum int
 	// generate by wrapInTable
-	ddl string
+	ddl             string
+	partitionFields []string
 }
 
 func (t *tableStmt) wrapInTable(fieldStmts []string) {
