@@ -214,7 +214,9 @@ tables = {
     -- 表的字符编码
     charsets = {'utf8', 'latin1', 'binary'},
     -- 表的分区数, 'undef' 表示不分区
-    partitions = {4, 6, 'undef'},
+    partitions = {"Range ( col1, col2 ) (PARTITION p0 VALUES LESS THAN ('2020-05-25')),PARTITION p1 VALUES [('2020-05-25'), ('2020-05-26'))))", 'undef'},
+    -- Data Model Key Columns。不填小括号后面的列则默认为 (pk)。partition columns 会自动加进来。columns 自动会放在表中其他列的前面
+    keys = {"AGGREGATE KEY (my_col1, my_col2)", "DUPLICATE KEY"},
 }
 
 -- 字段相关定义
@@ -245,7 +247,7 @@ data = {
 
 **tables**中定义表的相关属性，比如示例中的`rows`,`charsets`和`partitions`
 （更多的可定义属性见下面的语法手册），这些属性会被求全组合，每种组合生成一张表，
-所以示例中的 tables 定义共会生成 4(rows)*3(charsets)*3(partitions)=36 张表
+所以示例中的 tables 定义共会生成 4(rows)*3(charsets)*2(partitions)*3(key_types)*2(keys)=152 张表
 
 **fields**定义表中的字段信息，这些信息同样会被求全组合，每种组合生成一个字段，
 但是上面的示例中生成的字段数目会少于 6(types)*2(sign)=12 个，因为 sign 属性只能
@@ -268,7 +270,7 @@ data = {
 | --------   | -----   | ---- | ----|
 | rows       | 表的记录数  |  任意大于 0 的数字    |[0, 1, 2, 10, 100] |
 | charsets   | 字符编码    |  'utf8','utf8mb4','ascii','latin1','binary', 'undef' 表示不显式设置字符集|['undef'] |
-| partitions | 分区数      |  任意大于 0 的数字或者 'undef', 'undef' 表示不分区   |['undef'] |
+| partitions | 分区数      |  range/list 分区或者 'undef', 'undef' 表示不分区   |['undef'] |
 
 可设置的字段与默认值在源码中见[gendata/tables.go](gendata/tables.go) 的`tablesVars`变量
 
@@ -277,7 +279,6 @@ data = {
 | 字段名称   | 含义    |  可选值  |默认值 |
 | --------  | -----   | ---- | ----|
 | types     | 字段类型  |任意合法的 mysql 类型|['int', 'varchar', 'date', 'time', 'datetime'] |
-| keys      | 索引信息  |'key' 表示加索引,'undef' 表示不加|['undef', 'key']|
 | sign      | 是否带符号|'signed', 'unsigned'|['signed']|
 
 可设置的字段与默认值在源码中见[gendata/fields.go](gendata/fields.go) 的`fieldVars`变量
