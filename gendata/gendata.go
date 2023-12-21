@@ -13,6 +13,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-randgen/gendata/generators"
 	"github.com/pingcap/go-randgen/resource"
+	"github.com/samber/lo"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -53,10 +54,30 @@ func (z *ZzConfig) genDdls() ([]*tableStmt, []*fieldExec, error) {
 	}
 
 	for _, tableStmt := range tableStmts {
-		tableStmt.wrapInTable(fieldStmts)
+		tableStmt.wrapInTable(reorderFieldStmts(tableStmt, fieldStmts))
 	}
 
 	return tableStmts, fieldExecs, nil
+}
+
+// Reorder the table fields, put the key fields at the start.
+func reorderFieldStmts(tableStmt *tableStmt, fieldStmts []string) []string {
+	if len(tableStmt.keyFields) == 0 {
+		return fieldStmts
+	}
+
+	orderedFieldStmts := make([]string, 0, len(fieldStmts))
+
+	for _, field := range fieldStmts {
+		fieldName := strings.Trim(strings.Split(field, " ")[0], "`")
+		if lo.Contains(tableStmt.keyFields, fieldName) {
+			orderedFieldStmts = append([]string{field}, orderedFieldStmts...)
+			continue
+		}
+		orderedFieldStmts = append(orderedFieldStmts, field)
+	}
+
+	return orderedFieldStmts
 }
 
 func ByZz(zz string) ([]string, Keyfun, error) {
