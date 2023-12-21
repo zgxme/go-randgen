@@ -126,9 +126,6 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 
 	filedTmpM := make(map[string]int)
 
-	// add column `pk`
-	stmts = append(stmts, f.primaryKey())
-
 	err := f.traverse(func(cur []string) error {
 		fExec := &fieldExec{}
 
@@ -180,6 +177,8 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 		return nil, fieldExecs, err
 	}
 
+	// add column `pk`
+	stmts = append(stmts, f.primaryKey())
 	stmts = append(stmts, extraStmts...)
 
 	return stmts, fieldExecs, nil
