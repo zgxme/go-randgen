@@ -29,10 +29,10 @@ const (
 
 var (
 	defaultTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
-		"`pk` int primary key%s\n"+
+		"%s\n"+
 		") {{.charsets}} {{.partitions}}")
 	dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
-		"`pk` int%s\n"+
+		"%s\n"+
 		") engine=olap\n"+
 		"distributed by hash(pk) buckets 10\n"+
 		"{{.keys}}\n"+
@@ -128,16 +128,16 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 			key = fmt.Sprintf("%s(pk)", key)
 		}
 
-		key_fields := parseListFields(key)
-		key_type, err := getKeyType(key)
+		stmt.keyFields = parseListFields(key)
+		keyType, err := getKeyType(key)
 		if err != nil {
 			return "", err
 		}
 
 		// prepend partition fields to the key fields
-		key_fields = append(stmt.partitionFields, key_fields...)
+		stmt.keyFields = append(stmt.partitionFields, stmt.keyFields...)
 
-		return fmt.Sprintf("%s KEY(%s)", key_type, strings.Join(key_fields, ", ")), nil
+		return fmt.Sprintf("%s KEY(%s)", keyType, strings.Join(stmt.keyFields, ", ")), nil
 	},
 }
 
@@ -238,13 +238,15 @@ type tableStmt struct {
 	name   string
 	rowNum int
 	// generate by wrapInTable
-	ddl             string
+	ddl string
+	// the cols used in partition
 	partitionFields []string
+	// the cols used in key
+	keyFields []string
 }
 
 func (t *tableStmt) wrapInTable(fieldStmts []string) {
 	buf := &bytes.Buffer{}
-	buf.WriteString(",\n")
 	buf.WriteString(strings.Join(fieldStmts, ",\n"))
 	t.ddl = fmt.Sprintf(t.format, buf.String())
 }

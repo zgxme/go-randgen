@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pingcap/go-randgen/utils"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -108,6 +109,13 @@ func newFields(l *lua.LState) (*Fields, error) {
 	return &Fields{o}, nil
 }
 
+func (f *Fields) primaryKey() string {
+	if DBMS == utils.DORIS {
+		return "`pk` int"
+	}
+	return "`pk` int primary key"
+}
+
 func (f *Fields) gen() ([]string, []*fieldExec, error) {
 	fnamePrefix := "col"
 
@@ -117,6 +125,9 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 	fieldExecs := make([]*fieldExec, 0, f.numbers)
 
 	filedTmpM := make(map[string]int)
+
+	// add column `pk`
+	stmts = append(stmts, f.primaryKey())
 
 	err := f.traverse(func(cur []string) error {
 		fExec := &fieldExec{}
