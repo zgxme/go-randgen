@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,26 +19,32 @@ type Tables struct {
 	*options
 }
 
-var defaultTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
-	"`pk` int primary key%s\n"+
-	") {{.charsets}} {{.partitions}}")
+const (
+	KeyTypeAggregate = "AGGREGATE"
+	KeyTypeDuplicate = "DUPLICATE"
 
-var dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
-	"`pk` int%s\n"+
-	") engine=olap\n"+
-	"distributed by hash(pk) buckets 10\n"+
-	"{{.partitions}}\n"+
-	"properties(\n"+
-	"	'replication_num' = '1')")
-
-var tablesTmplData = map[string]*template.Template{
-	utils.DodirTmpl:   dorisTablesTmpl,
-	utils.DefaultTmpl: defaultTablesTmpl,
-}
+	// May cause duplicate value error. Unsupported now.
+	// KeyTypeUnique = "UNIQUE"
+)
 
 var (
-	tablesTmpl = defaultTablesTmpl
-	DBMS       = utils.MYSQL
+	defaultTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
+		"`pk` int primary key%s\n"+
+		") {{.charsets}} {{.partitions}}")
+	dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
+		"`pk` int%s\n"+
+		") engine=olap\n"+
+		"distributed by hash(pk) buckets 10\n"+
+		"{{.keys}}\n"+
+		"{{.partitions}}\n"+
+		"properties('replication_num' = '1')")
+	tablesTmplData = map[string]*template.Template{
+		utils.DodirTmpl:   dorisTablesTmpl,
+		utils.DefaultTmpl: defaultTablesTmpl,
+	}
+	tablesTmpl        = defaultTablesTmpl
+	DBMS              = utils.MYSQL
+	SupportedKeyTypes = []string{KeyTypeAggregate, KeyTypeDuplicate}
 )
 
 func InitTmpl(dbms string) {
@@ -61,6 +68,10 @@ var tablesVars = []*varWithDefault{
 	},
 	{
 		"partitions",
+		[]string{"undef"},
+	},
+	{
+		"keys",
 		[]string{"undef"},
 	},
 }
@@ -96,19 +107,58 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 			return fmt.Sprintf("\npartition by hash(pk)\npartitions %d", num), nil
 		}
 
-		stmt.partitionFields = parsePartitionFields(text)
+		stmt.partitionFields = parseListFields(text)
 
 		return "PARTITION BY " + text, nil
 	},
+	"keys": func(key string, stmt *tableStmt) (string, error) {
+		key = strings.TrimSpace(key)
+		if key == "undef" {
+			if len(stmt.partitionFields) == 0 {
+				return "", nil
+			}
+
+			// Must have keys if partitions exist.
+			// Randomly choose a key type here.
+			key = SupportedKeyTypes[rand.Intn(len(SupportedKeyTypes))] + " Key"
+		}
+
+		// Default key column is `pk`.
+		if !strings.Contains(key, "(") {
+			key = fmt.Sprintf("%s(pk)", key)
+		}
+
+		key_fields := parseListFields(key)
+		key_type, err := getKeyType(key)
+		if err != nil {
+			return "", err
+		}
+
+		// prepend partition fields to the key fields
+		key_fields = append(stmt.partitionFields, key_fields...)
+
+		return fmt.Sprintf("%s KEY(%s)", key_type, strings.Join(key_fields, ", ")), nil
+	},
 }
 
-var partition_field_re = regexp.MustCompile(`(?i:range|list)\s*\((.*)\)\s*\(`)
+func getKeyType(text string) (string, error) {
+	text = strings.ToUpper(text)
+	for _, keyType := range SupportedKeyTypes {
+		if strings.HasPrefix(text, keyType) {
+			return keyType, nil
+		}
+	}
+	return "", fmt.Errorf("unsupported key type: %s, expect one of %v", text, SupportedKeyTypes)
+}
+
+var list_fields_re = regexp.MustCompile(`^(?i:RANGE|LIST|AGGREGATE\s+KEY|DUPLICATE\s+KEY)\s*\(([^()]*)\)`)
 
 // RANGE(col1, col2) -> [col1, col2]
-func parsePartitionFields(partitions string) []string {
-	matches := partition_field_re.FindStringSubmatch(partitions)
+func parseListFields(list string) []string {
+	list = strings.TrimSpace(list)
+	matches := list_fields_re.FindStringSubmatch(list)
 	if len(matches) != 2 {
-		log.Fatalln("partition fields not found")
+		log.Fatalln("list fields not found in:", list)
 	}
 
 	return lo.Map(strings.Split(matches[1], ","), func(field string, _ int) string { return strings.Trim(field, "` ") })
@@ -127,21 +177,26 @@ func newTables(l *lua.LState) (*Tables, error) {
 func (t *Tables) gen() ([]*tableStmt, error) {
 	tnamePrefix := "table"
 
-	buf := &bytes.Buffer{}
+	tableName := &bytes.Buffer{}
 	m := make(map[string]string)
 	stmts := make([]*tableStmt, 0, t.numbers)
 
 	tableTmpM := make(map[string]int)
 
 	err := t.traverse(func(cur []string) error {
-		buf.Reset()
-		buf.WriteString(tnamePrefix)
+		tableName.Reset()
+		tableName.WriteString(tnamePrefix)
 		stmt := &tableStmt{}
 		for i := range cur {
 			// current field name: fields[i]
 			// current field value: curr[i]
 			field := t.fields[i]
-			buf.WriteString("_" + cur[i])
+			curname := cur[i]
+			if field == "partitions" || field == "keys" {
+				curname = field + strconv.Itoa(i)
+			}
+			tableName.WriteString("_" + curname)
+
 			target, err := tableFuncs[field](cur[i], stmt)
 			if err != nil {
 				return err
@@ -149,7 +204,7 @@ func (t *Tables) gen() ([]*tableStmt, error) {
 			m[field] = target
 		}
 
-		tname := buf.String()
+		tname := tableName.String()
 
 		if v, ok := tableTmpM[tname]; !ok {
 			tableTmpM[tname] = 1
