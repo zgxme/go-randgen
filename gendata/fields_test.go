@@ -24,7 +24,7 @@ fields = {
 	stmts, _, err := fields.gen()
 	assert.Equal(t, nil, err)
 
-	assert.Equal(t, 42, len(stmts))
+	assert.Equal(t, 43, len(stmts))
 
 	/*	for _, stmt := range stmts {
 		fmt.Println(stmt)
