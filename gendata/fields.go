@@ -136,7 +136,7 @@ func (f *Fields) gen() ([]string, []*fieldExec, error) {
 		fname = strings.ReplaceAll(strings.ReplaceAll(fname, "(", "_"), ")", "_")
 		fname = strings.ReplaceAll(fname, ",", "_")
 		fname = strings.ReplaceAll(fname, " ", "_")
-		fname = strings.Trim(fname, " ")
+		fname = strings.Trim(fname, " _")
 		extraNum := 0
 
 		for i := range cur {
