@@ -20,7 +20,8 @@ type Tables struct {
 }
 
 const (
-	KeyTypeAggregate = "AGGREGATE"
+	// TODO: Support agg type for non-key cols, to fix error: AGG_KEYS table should not specify aggregate type for non-key column
+	// KeyTypeAggregate = "AGGREGATE"
 	KeyTypeDuplicate = "DUPLICATE"
 
 	// May cause duplicate value error. Unsupported now.
@@ -34,9 +35,9 @@ var (
 	dorisTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
 		"%s\n"+
 		") engine=olap\n"+
-		"distributed by hash(pk) buckets 10\n"+
 		"{{.keys}}\n"+
 		"{{.partitions}}\n"+
+		"distributed by hash(pk) buckets 10\n"+
 		"properties('replication_num' = '1')")
 	tablesTmplData = map[string]*template.Template{
 		utils.DodirTmpl:   dorisTablesTmpl,
@@ -44,7 +45,10 @@ var (
 	}
 	tablesTmpl        = defaultTablesTmpl
 	DBMS              = utils.MYSQL
-	SupportedKeyTypes = []string{KeyTypeAggregate, KeyTypeDuplicate}
+	SupportedKeyTypes = []string{
+		// KeyTypeAggregate,
+		KeyTypeDuplicate,
+	}
 )
 
 func InitTmpl(dbms string) {
@@ -239,6 +243,8 @@ type tableStmt struct {
 	rowNum int
 	// generate by wrapInTable
 	ddl string
+	// the cols used in insert
+	insertFields []string
 	// the cols used in partition
 	partitionFields []string
 	// the cols used in key

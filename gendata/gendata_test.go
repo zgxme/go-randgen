@@ -18,7 +18,7 @@ tables = {
     rows = {10, 20, 30},
     charsets = {'utf8', 'utf8mb4', 'undef'},
     partitions = {"Range ( pcol1, pcol2 ) (PARTITION p0 VALUES LESS THAN ('2020-05-25')),PARTITION p1 VALUES [('2020-05-25'), ('2020-05-26'))))", 'undef'},
-	keys = {"AGGREGATE KEY (my_col1, my_col2)", "DUPLICATE KEY", "undef"},
+	keys = {"DUPLICATE KEY (my_col1, my_col2)", "DUPLICATE KEY", "undef"},
 }
 
 fields = {

@@ -13,7 +13,6 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-randgen/gendata/generators"
 	"github.com/pingcap/go-randgen/resource"
-	"github.com/samber/lo"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -66,16 +65,21 @@ func reorderFieldStmts(tableStmt *tableStmt, fieldStmts []string) []string {
 		return fieldStmts
 	}
 
+	fieldStmtsCopy := append([]string{}, fieldStmts...)
 	orderedFieldStmts := make([]string, 0, len(fieldStmts))
 
-	for _, field := range fieldStmts {
-		fieldName := strings.Trim(strings.Split(field, " ")[0], "`")
-		if lo.Contains(tableStmt.keyFields, fieldName) {
-			orderedFieldStmts = append([]string{field}, orderedFieldStmts...)
-			continue
+	for _, field := range tableStmt.keyFields {
+		for i, fieldStmt := range fieldStmtsCopy {
+			if strings.HasPrefix(fieldStmt, fmt.Sprintf("`%s`", field)) {
+				orderedFieldStmts = append(orderedFieldStmts, fieldStmt)
+				fieldStmtsCopy = append(fieldStmtsCopy[:i], fieldStmtsCopy[i+1:]...)
+				break
+			}
 		}
-		orderedFieldStmts = append(orderedFieldStmts, field)
 	}
+
+	// append remain non-key cols at last
+	orderedFieldStmts = append(orderedFieldStmts, fieldStmtsCopy...)
 
 	return orderedFieldStmts
 }
@@ -123,7 +127,7 @@ func ByConfig(config *ZzConfig) ([]string, Keyfun, error) {
 			recordGor.oneRow(row)
 			valuesStmt = append(valuesStmt, wrapInDml(strconv.Itoa(i), row))
 		}
-		sqls = append(sqls, wrapInInsert(tableStmt.name, valuesStmt))
+		sqls = append(sqls, wrapInInsert(tableStmt.name, fieldExecs, valuesStmt))
 	}
 
 	return sqls, NewKeyfun(tableStmts, fieldExecs), nil
@@ -216,10 +220,16 @@ func ByDb(db *sql.DB, dbms string) (Keyfun, error) {
 	return NewKeyfun(tableStmts, fieldExecs), nil
 }
 
-const insertTemp = "insert into %s values %s"
+const insertTemp = "insert into %s(%s) values %s"
 
-func wrapInInsert(tableName string, valuesStmt []string) string {
-	return fmt.Sprintf(insertTemp, tableName, strings.Join(valuesStmt, ","))
+func wrapInInsert(tableName string, fieldExecs []*fieldExec, valuesStmt []string) string {
+	buf := &bytes.Buffer{}
+	buf.WriteString("pk")
+	for _, f := range fieldExecs {
+		buf.WriteString(",")
+		buf.WriteString(f.name)
+	}
+	return fmt.Sprintf(insertTemp, tableName, buf.String(), strings.Join(valuesStmt, ","))
 }
 
 func wrapInDml(pk string, data []string) string {
