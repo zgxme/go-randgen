@@ -13,6 +13,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-randgen/gendata/generators"
 	"github.com/pingcap/go-randgen/resource"
+	"github.com/pingcap/go-randgen/utils"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -53,14 +54,15 @@ func (z *ZzConfig) genDdls() ([]*tableStmt, []*fieldExec, error) {
 	}
 
 	for _, tableStmt := range tableStmts {
-		tableStmt.wrapInTable(reorderFieldStmts(tableStmt, fieldStmts))
+		tableStmt.wrapInTable(reorderFieldsWithAggType(tableStmt, fieldStmts))
 	}
 
 	return tableStmts, fieldExecs, nil
 }
 
-// Reorder the table fields, put the key fields at the start.
-func reorderFieldStmts(tableStmt *tableStmt, fieldStmts []string) []string {
+// 1. Reorder the table fields, put the key fields at the start
+// 2. Add agg type for non-key cols if key type is agg
+func reorderFieldsWithAggType(tableStmt *tableStmt, fieldStmts []string) []string {
 	if len(tableStmt.keyFields) == 0 {
 		return fieldStmts
 	}
@@ -71,17 +73,32 @@ func reorderFieldStmts(tableStmt *tableStmt, fieldStmts []string) []string {
 	for _, field := range tableStmt.keyFields {
 		for i, fieldStmt := range fieldStmtsCopy {
 			if strings.HasPrefix(fieldStmt, fmt.Sprintf("`%s`", field)) {
-				orderedFieldStmts = append(orderedFieldStmts, fieldStmt)
+				orderedFieldStmts = append(orderedFieldStmts, withAggType(fieldStmt, ""))
 				fieldStmtsCopy = append(fieldStmtsCopy[:i], fieldStmtsCopy[i+1:]...)
 				break
 			}
 		}
 	}
 
+	// Add agg type for non-key cols if key type is agg
+	for i, fieldStmt := range fieldStmtsCopy {
+		aggType := ""
+		if tableStmt.keyType == utils.KeyTypeAggregate {
+			aggType = randAggType()
+		}
+		fieldStmtsCopy[i] = withAggType(fieldStmt, aggType)
+	}
+
 	// append remain non-key cols at last
 	orderedFieldStmts = append(orderedFieldStmts, fieldStmtsCopy...)
 
 	return orderedFieldStmts
+}
+
+var aggTypes = []string{"MAX", "MIN", "REPLACE" /* do not support "SUM", because only numeric type can use it */}
+
+func randAggType() string {
+	return fmt.Sprintf(" %s", aggTypes[rand.Intn(len(aggTypes))])
 }
 
 func ByZz(zz string) ([]string, Keyfun, error) {

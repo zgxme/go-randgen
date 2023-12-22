@@ -9,7 +9,11 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}} {{.sign}} {{.null}} {{.keys}}")
+func withAggType(fieldStmt, aggType string) string {
+	return strings.Replace(fieldStmt, utils.AggTypePlaceholder, aggType, 1)
+}
+
+var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}}"+utils.AggTypePlaceholder+" {{.sign}} {{.null}} {{.keys}}")
 
 var fieldVars = []*varWithDefault{
 	{

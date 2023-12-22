@@ -19,15 +19,6 @@ type Tables struct {
 	*options
 }
 
-const (
-	// TODO: Support agg type for non-key cols, to fix error: AGG_KEYS table should not specify aggregate type for non-key column
-	// KeyTypeAggregate = "AGGREGATE"
-	KeyTypeDuplicate = "DUPLICATE"
-
-	// May cause duplicate value error. Unsupported now.
-	// KeyTypeUnique = "UNIQUE"
-)
-
 var (
 	defaultTablesTmpl = mustParse("tables", "create table {{.tname}} (\n"+
 		"%s\n"+
@@ -43,12 +34,8 @@ var (
 		utils.DodirTmpl:   dorisTablesTmpl,
 		utils.DefaultTmpl: defaultTablesTmpl,
 	}
-	tablesTmpl        = defaultTablesTmpl
-	DBMS              = utils.MYSQL
-	SupportedKeyTypes = []string{
-		// KeyTypeAggregate,
-		KeyTypeDuplicate,
-	}
+	tablesTmpl = defaultTablesTmpl
+	DBMS       = utils.MYSQL
 )
 
 func InitTmpl(dbms string) {
@@ -124,7 +111,7 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 
 			// Must have keys if partitions exist.
 			// Randomly choose a key type here.
-			key = SupportedKeyTypes[rand.Intn(len(SupportedKeyTypes))] + " Key"
+			key = utils.SupportedKeyTypes[rand.Intn(len(utils.SupportedKeyTypes))] + " Key"
 		}
 
 		// Default key column is `pk`.
@@ -137,6 +124,7 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 		if err != nil {
 			return "", err
 		}
+		stmt.keyType = keyType
 
 		// prepend partition fields to the key fields
 		stmt.keyFields = append(stmt.partitionFields, stmt.keyFields...)
@@ -147,12 +135,12 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 
 func getKeyType(text string) (string, error) {
 	text = strings.ToUpper(text)
-	for _, keyType := range SupportedKeyTypes {
+	for _, keyType := range utils.SupportedKeyTypes {
 		if strings.HasPrefix(text, keyType) {
 			return keyType, nil
 		}
 	}
-	return "", fmt.Errorf("unsupported key type: %s, expect one of %v", text, SupportedKeyTypes)
+	return "", fmt.Errorf("unsupported key type: %s, expect one of %v", text, utils.SupportedKeyTypes)
 }
 
 var list_fields_re = regexp.MustCompile(`^(?i:RANGE|LIST|AGGREGATE\s+KEY|DUPLICATE\s+KEY)\s*\(([^()]*)\)`)
@@ -243,6 +231,8 @@ type tableStmt struct {
 	rowNum int
 	// generate by wrapInTable
 	ddl string
+	// the key type: agg, dup or uniq
+	keyType string
 	// the cols used in insert
 	insertFields []string
 	// the cols used in partition
