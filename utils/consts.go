@@ -1,7 +1,5 @@
 package utils
 
-// We can not determine if the column has agg_type while generating fields.
-// so add a placeholder for agg_type and replace it when we know if the table key type is `AGGREGATE`.
 const AggTypePlaceholder = "/*agg_type_placeholder*/"
 
 const (
