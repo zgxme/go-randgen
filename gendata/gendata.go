@@ -265,19 +265,25 @@ func wrapInDml(pk string, data []string) string {
 const (
 	fInt = iota
 	fChar
+	fDate
+	fDatetime
 )
 
 var fClass = map[string]int{
-	"char":      fChar,
-	"varchar":   fChar,
-	"binary":    fChar,
-	"varbinary": fChar,
-	"integer":   fInt,
-	"int":       fInt,
-	"smallint":  fInt,
-	"tinyint":   fInt,
-	"mediumint": fInt,
-	"bigint":    fInt,
+	"char":       fChar,
+	"varchar":    fChar,
+	"binary":     fChar,
+	"varbinary":  fChar,
+	"integer":    fInt,
+	"int":        fInt,
+	"smallint":   fInt,
+	"tinyint":    fInt,
+	"mediumint":  fInt,
+	"bigint":     fInt,
+	"date":       fDate,
+	"datev2":     fDate,
+	"datetime":   fDatetime,
+	"datetimev2": fDatetime,
 }
 
 type Keyfun map[string]func() (string, error)
@@ -306,12 +312,18 @@ func joinFields(fields []*fieldExec) string {
 var field_invariant = ""
 
 func NewKeyfun(tables []*tableStmt, fields []*fieldExec) Keyfun {
+	fieldsDate := make([]*fieldExec, 0)
+	fieldsDatetime := make([]*fieldExec, 0)
 	fieldsInt := make([]*fieldExec, 0)
 	fieldsChar := make([]*fieldExec, 0)
 
 	for _, fieldExec := range fields {
 		if class, ok := fClass[fieldExec.dType()]; ok {
 			switch class {
+			case fDate:
+				fieldsDate = append(fieldsDate, fieldExec)
+			case fDatetime:
+				fieldsDatetime = append(fieldsDatetime, fieldExec)
 			case fInt:
 				fieldsInt = append(fieldsInt, fieldExec)
 			case fChar:
@@ -346,6 +358,18 @@ func NewKeyfun(tables []*tableStmt, fields []*fieldExec) Keyfun {
 			return field_invariant, nil
 		},
 
+		"_field_date": func() (string, error) {
+			if len(fieldsDate) == 0 {
+				return "", errors.New("there is no date fields")
+			}
+			return "`" + fieldsDate[rand.Intn(len(fieldsDate))].name + "`", nil
+		},
+		"_field_datetime": func() (string, error) {
+			if len(fieldsDatetime) == 0 {
+				return "", errors.New("there is no datetime fields")
+			}
+			return "`" + fieldsDatetime[rand.Intn(len(fieldsDatetime))].name + "`", nil
+		},
 		"_field_int": func() (string, error) {
 			if len(fieldsInt) == 0 {
 				return "", errors.New("there is no int fields")

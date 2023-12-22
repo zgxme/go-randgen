@@ -90,7 +90,7 @@ func TestByDb(t *testing.T) {
 		tp string
 	}
 
-	infoOrders := []string{"v1", "v2"}
+	infoOrders := []string{"v1", "v2", "v3"}
 
 	infos := map[string]*fieldInfo{
 		"v1": {
@@ -98,6 +98,9 @@ func TestByDb(t *testing.T) {
 		},
 		"v2": {
 			tp: "varchar(255)",
+		},
+		"v3": {
+			tp: "datev2",
 		},
 	}
 
@@ -133,9 +136,11 @@ func TestByDb(t *testing.T) {
 		assertMustEqual(t, "`v1`", kf["_field_int"])
 
 		assertMustEqual(t, "`v2`", kf["_field_char"])
+
+		assertMustEqual(t, "`v3`", kf["_field_date"])
 	}
 
-	assertMustEqual(t, "`v1`,`v2`", kf["_field_list"])
+	assertMustEqual(t, "`v1`,`v2`,`v3`", kf["_field_list"])
 
 	assertMustEqual(t, "`v1`", kf["_field_int_list"])
 	assertMustEqual(t, "`v2`", kf["_field_char_list"])
