@@ -115,7 +115,7 @@ func newFields(l *lua.LState) (*Fields, error) {
 
 func (f *Fields) primaryKey() string {
 	if DBMS == utils.DORIS {
-		return "`pk` int"
+		return fmt.Sprintf("`pk` int%s", utils.AggTypePlaceholder)
 	}
 	return "`pk` int primary key"
 }
