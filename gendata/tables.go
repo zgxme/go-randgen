@@ -20,8 +20,7 @@ type Tables struct {
 }
 
 const (
-	// TODO: Support agg type for non-key cols, to fix error: AGG_KEYS table should not specify aggregate type for non-key column
-	// KeyTypeAggregate = "AGGREGATE"
+	KeyTypeAggregate = "AGGREGATE"
 	KeyTypeDuplicate = "DUPLICATE"
 
 	// May cause duplicate value error. Unsupported now.
@@ -46,7 +45,7 @@ var (
 	tablesTmpl        = defaultTablesTmpl
 	DBMS              = utils.MYSQL
 	SupportedKeyTypes = []string{
-		// KeyTypeAggregate,
+		KeyTypeAggregate,
 		KeyTypeDuplicate,
 	}
 )
@@ -137,6 +136,7 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 		if err != nil {
 			return "", err
 		}
+		stmt.keyType = keyType
 
 		// prepend partition fields to the key fields
 		stmt.keyFields = append(stmt.partitionFields, stmt.keyFields...)
@@ -243,6 +243,8 @@ type tableStmt struct {
 	rowNum int
 	// generate by wrapInTable
 	ddl string
+	// the key type: agg, dup or uniq
+	keyType string
 	// the cols used in insert
 	insertFields []string
 	// the cols used in partition
