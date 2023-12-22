@@ -13,6 +13,7 @@ import (
 	"github.com/pingcap/errors"
 	"github.com/pingcap/go-randgen/gendata/generators"
 	"github.com/pingcap/go-randgen/resource"
+	"github.com/pingcap/go-randgen/utils"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -82,7 +83,7 @@ func reorderFieldsWithAggType(tableStmt *tableStmt, fieldStmts []string) []strin
 	// Add agg type for non-key cols if key type is agg
 	for i, fieldStmt := range fieldStmtsCopy {
 		aggType := ""
-		if tableStmt.keyType == KeyTypeAggregate {
+		if tableStmt.keyType == utils.KeyTypeAggregate {
 			aggType = randAggType()
 		}
 		fieldStmtsCopy[i] = withAggType(fieldStmt, aggType)
