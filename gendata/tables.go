@@ -127,7 +127,7 @@ var tableFuncs = map[string]func(string, *tableStmt) (string, error){
 		stmt.keyType = keyType
 
 		// prepend partition fields to the key fields
-		stmt.keyFields = append(stmt.partitionFields, stmt.keyFields...)
+		stmt.keyFields = lo.Uniq(append(stmt.partitionFields, stmt.keyFields...))
 
 		return fmt.Sprintf("%s KEY(%s)", keyType, strings.Join(stmt.keyFields, ", ")), nil
 	},
