@@ -370,6 +370,8 @@ select1
 
  - `_table`: 从生成的表中随机选择一张
  - `_field`: 从生成的字段中随机选择一个
+ - `_field_date`: 从 date 字段中随机选择一个
+ - `_field_datetime`: 从 datetime 字段中随机选择一个
  - `_field_int`: 从整型字段中随机选择一个
  - `_field_char`: 从 char 和 varchar 类型字段中随机选择一个
  - `_field_list`: 获取全部字段，以逗号分隔
