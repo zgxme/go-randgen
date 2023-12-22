@@ -13,6 +13,8 @@ func withAggType(fieldStmt, aggType string) string {
 	return strings.Replace(fieldStmt, utils.AggTypePlaceholder, aggType, 1)
 }
 
+// We can not determine if the column has agg_type while generating fields.
+// so add a placeholder for agg_type and replace it when we know if the table key type is `AGGREGATE`.
 var fieldsTmpl = mustParse("fields", "`{{.fname}}` {{.types}}"+utils.AggTypePlaceholder+" {{.sign}} {{.null}} {{.keys}}")
 
 var fieldVars = []*varWithDefault{
@@ -115,7 +117,7 @@ func newFields(l *lua.LState) (*Fields, error) {
 
 func (f *Fields) primaryKey() string {
 	if DBMS == utils.DORIS {
-		return "`pk` int"
+		return fmt.Sprintf("`pk` int%s", utils.AggTypePlaceholder)
 	}
 	return "`pk` int primary key"
 }
